@@ -6,6 +6,7 @@ class DataProcessor(ABC):
     def __init__(self) -> None:
         self._ret: list[tuple[int, str]] = []
         self._index: int = 0
+        self._not: self._index #outputum poxenq not - 1
 
     @abstractmethod
     def validate(self, data: Any) -> bool:
@@ -18,7 +19,14 @@ class DataProcessor(ABC):
     def output(self) -> tuple[int, str]:
         if not self._ret:
             raise TypeError()
+        s
         return self._ret.pop(0)
+
+    def ret_not(self) -> int:
+        return self._not
+
+    def ret_index(self) -> int:
+        return self._index
 
 
 class NumericProcessor(DataProcessor):
@@ -112,66 +120,43 @@ class LogProcessor(DataProcessor):
 
 class DataStream():
     def __init__(self) -> None:
-        self._processored: int = 0
-        self._not: int = 0
+        self._procs: list[DataProcessor] = []
 
     def register_processor(self, proc: DataProcessor) -> None:
-        self._proc = proc()
+        self._procs.append(proc)
 
-    def process_stream(self, stream: list[typing.Any]) -> None:
+    def process_stream(self, stream: list[Any]) -> None:
+        check = False
         for x in stream:
-            if self._proc.validate(x) is True:
-                self._proc.ingest(x)
-                self._processored += 1
-            else:
+            for proc in self._procs:
+                if proc.validate(x) is True:
+                    proc.ingest(x)
+                    check = True
+                else:
+                    proc._not += 1
+            if check is False:
                 print(f"DataStream error - Can't process element in stream: {x}")
-                self._not += 1
+            check = False
     
     def print_processors_stats(self) -> None:
         print("== DataStream statistics ==")
-        print(f"{self._proc}: total {self._processored} items processed, remaining {self._not} on processor")
+        if len(self._procs) == 0:
+            print("No processor found, no data")
+        else:
+            for x in self._procs:
+                print(f"{x.__class__.__name__}: total {x.ret_index()} items processed, remaining {x.ret_not()} on processor")
 
 
 if __name__ == "__main__":
-    print("=== Code Nexus - Data Processor ===\n")
-
-    print("Testing Numeric Processor...")
-    np = NumericProcessor()
-    print(f" Trying to validate input '42': {np.validate(42)}")
-    print(f" Trying to validate input 'Hello': {np.validate('Hello')}")
-    print(" Test invalid ingestion of string 'foo' without prior validation:")
-    try:
-        np.ingest("foo")
-    except TypeError as e:
-        print(f" Got exception: {e}")
-    print(" Processing data: [1, 2, 3, 4, 5]")
-    print(" Extracting 3 values...")
-    np.ingest([1, 2, 3, 4, 5])
-    for i in range(3):
-        rank, value = np.output()
-        print(f" Numeric value {rank}: {value}")
-    print("")
-
-    print("Testing Text Processor...")
-    tp = TextProcessor()
-    print(f" Trying to validate input '42': {tp.validate(42)}")
-    print(" Processing data: ['Hello', 'Nexus', 'World']")
-    tp.ingest(['Hello', 'Nexus', 'World'])
-    rank, value = tp.output()
-    print(" Extracting 1 value...")
-    print(f" Text value {rank}: {value}")
-    print("")
-
-    print("Testing Log Processor...")
-    lp = LogProcessor()
-    print(f" Trying to validate input 'Hello': {lp.validate('Hello')}")
-    log_data = [
-        {'log_level': 'NOTICE', 'log_message': 'Connection to server'},
-        {'log_level': 'ERROR', 'log_message': 'Unauthorized access!!'}
-    ]
-    print(f" Processing data: {log_data}")
-    lp.ingest(log_data)
-    print("Extracting 2 values...")
-    for i in range(2):
-        rank, value = lp.output()
-        print(f" Log entry {rank}: {value}")
+    a = DataStream()
+    num = NumericProcessor()
+    text = TextProcessor()
+    print('=== Code Nexus - Data Stream ===')
+    a.print_processors_stats()
+    print("\nRegistering Numeric Processor\n")
+    lst = ['Hello world', [3.14, -1, 2.71], [{'log_level': 'WARNING', 'log_message': 'Telnet access! Use ssh instead'},
+            {'log_level': 'INFO', 'log_message': 'User wil is connected'}], 42, ['Hi', 'five']]
+    print(f"Send first batch of data {lst}")
+    a.register_processor(num)
+    a.process_stream(lst)
+    a.print_processors_stats()
